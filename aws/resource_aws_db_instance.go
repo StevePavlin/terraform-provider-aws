@@ -86,10 +86,14 @@ func resourceAwsDbInstance() *schema.Resource {
 			},
 
 			"engine_version": {
-				Type:             schema.TypeString,
-				Optional:         true,
-				Computed:         true,
-				DiffSuppressFunc: suppressAwsDbEngineVersionDiffs,
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
+
+			"engine_version_actual": {
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 
 			"ca_cert_identifier": {
@@ -1407,7 +1411,6 @@ func resourceAwsDbInstanceRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("username", v.MasterUsername)
 	d.Set("deletion_protection", v.DeletionProtection)
 	d.Set("engine", v.Engine)
-	d.Set("engine_version", v.EngineVersion)
 	d.Set("allocated_storage", v.AllocatedStorage)
 	d.Set("iops", v.Iops)
 	d.Set("copy_tags_to_snapshot", v.CopyTagsToSnapshot)
@@ -1432,6 +1435,8 @@ func resourceAwsDbInstanceRead(d *schema.ResourceData, meta interface{}) error {
 	if v.DBSubnetGroup != nil {
 		d.Set("db_subnet_group_name", v.DBSubnetGroup.DBSubnetGroupName)
 	}
+
+	dbSetResourceDataEngineVersionFromInstance(d, v)
 
 	if v.CharacterSetName != nil {
 		d.Set("character_set_name", v.CharacterSetName)
@@ -1992,4 +1997,13 @@ func expandRestoreToPointInTime(l []interface{}) *rds.RestoreDBInstanceToPointIn
 	}
 
 	return input
+}
+
+func dbSetResourceDataEngineVersionFromInstance(d *schema.ResourceData, c *rds.DBInstance) {
+	oldVersion := d.Get("engine_version").(string)
+	newVersion := aws.StringValue(c.EngineVersion)
+	if oldVersion != newVersion && string(append([]byte(oldVersion), []byte(".")...)) != string([]byte(newVersion)[0:len(oldVersion)+1]) {
+		d.Set("engine_version", newVersion)
+	}
+	d.Set("engine_version_actual", newVersion)
 }
